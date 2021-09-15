@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <string.h>
+#include <cJSON.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -47,6 +48,7 @@
 #include "aws_iot_log.h"
 #include "aws_iot_version.h"
 #include "aws_iot_mqtt_client_interface.h"
+#include "sonar.h"
 
 static const char *TAG = "subpub";
 
@@ -258,15 +260,15 @@ void aws_iot_task(void *param) {
         abort();
     }
 
-    sprintf(cPayload, "%s : %d ", "hello from SDK", i);
 
+    //initialize sonar
+    sonarInit();
+    double sonarRange = 0;
+    //init payload
+    char* payloadJsonString;
+    cJSON* payloadJson;
     paramsQOS0.qos = QOS0;
-    paramsQOS0.payload = (void *) cPayload;
     paramsQOS0.isRetained = 0;
-
-    paramsQOS1.qos = QOS1;
-    paramsQOS1.payload = (void *) cPayload;
-    paramsQOS1.isRetained = 0;
 
     while((NETWORK_ATTEMPTING_RECONNECT == rc || NETWORK_RECONNECTED == rc || SUCCESS == rc)) {
 
@@ -278,18 +280,21 @@ void aws_iot_task(void *param) {
         }
 
         ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS0)", i++);
-        paramsQOS0.payloadLen = strlen(cPayload);
+        
+        sonarRange = sonarGetDistanceCm();
+        payloadJson = cJSON_CreateObject();
+        cJSON_AddNumberToObject(payloadJson, "iteration", i++);
+        cJSON_AddNumberToObject(payloadJson, "range", sonarRange);
+        cJSON_AddStringToObject(payloadJson, "unit", "cm");
+        payloadJsonString = cJSON_Print(payloadJson);
+        paramsQOS0.payload = payloadJsonString;
+        paramsQOS0.payloadLen = strlen(payloadJsonString);
         rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
-
-        sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS1)", i++);
-        paramsQOS1.payloadLen = strlen(cPayload);
-        rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS1);
         if (rc == MQTT_REQUEST_TIMEOUT_ERROR) {
             ESP_LOGW(TAG, "QOS1 publish ack not received.");
             rc = SUCCESS;
         }
+        vTaskDelay(200 / portTICK_PERIOD_MS);
     }
 
     ESP_LOGE(TAG, "An error occurred in the main loop.");

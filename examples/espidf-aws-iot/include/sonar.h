@@ -1,0 +1,2 @@
+void sonarInit();
+double sonarGetDistanceCm();
