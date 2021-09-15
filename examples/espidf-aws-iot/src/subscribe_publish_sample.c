@@ -248,7 +248,7 @@ void aws_iot_task(void *param) {
         abort();
     }
 
-    const char *TOPIC = "test_topic/esp32";
+    const char *TOPIC = "Range_sensor";
     const int TOPIC_LEN = strlen(TOPIC);
 
     ESP_LOGI(TAG, "Subscribing...");
