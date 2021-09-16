@@ -51,13 +51,13 @@ void app_main(void)
     }
 
     // Open renamed file for reading
-    ESP_LOGI(TAG, "Reading file");
-    FILE* f = fopen("/spiffs/hello.txt", "r");
+    ESP_LOGI(TAG, "Reading ca.pem");
+    FILE* f = fopen("/spiffs/certs/ca.pem", "r");
     if (f == NULL) {
         ESP_LOGI(TAG, "Failed to open file for reading");
         return;
     }
-    char line[64];
+    char line[2000];
     fgets(line, sizeof(line), f);
     fclose(f);
     // strip newline
@@ -65,7 +65,39 @@ void app_main(void)
     if (pos) {
         *pos = '\0';
     }
-    ESP_LOGI(TAG, "Read from file: '%s'", line);
+    ESP_LOGI(TAG, "aws-root-ca.pem: '%s'", line);
+
+    ESP_LOGI(TAG, "Reading c.pem.crt");
+    f = fopen("/spiffs/certs/c.pem.crt", "r");
+    if (f == NULL) {
+        ESP_LOGI(TAG, "Failed to open file for reading");
+        return;
+    }
+    fgets(line, sizeof(line), f);
+    fclose(f);
+    // strip newline
+    pos = strchr(line, '\n');
+    if (pos) {
+        *pos = '\0';
+    }
+    ESP_LOGI(TAG, "certificate.pem.crt: '%s'", line);
+
+    
+    ESP_LOGI(TAG, "Reading p.pem.key");
+    f = fopen("/spiffs/certs/p.pem.key", "r");
+    if (f == NULL) {
+        ESP_LOGI(TAG, "Failed to open file for reading");
+        return;
+    }
+    fgets(line, sizeof(line), f);
+    fclose(f);
+    // strip newline
+    pos = strchr(line, '\n');
+    if (pos) {
+        *pos = '\0';
+    }
+    ESP_LOGI(TAG, "p.pem.key: '%s'", line);
+
 
     // All done, unmount partition and disable SPIFFS
     esp_vfs_spiffs_unregister(conf.partition_label);
