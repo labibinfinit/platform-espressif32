@@ -20,24 +20,40 @@
 #include "esp_netif.h"
 #include "esp_vfs_fat.h"
 #include "nvs_flash.h"
-// #include "protocol_examples_common.h"
-// #include "sdkconfig.h"
-// #include "driver/sdspi_host.h"
-// #include "driver/spi_common.h"
-// #include "sdmmc_cmd.h"
-// #include "soc/soc_caps.h"
+#include "mdns.h"
+#include "lwip/apps/netbiosns.h"
+#include "protocol_examples_common.h"
+#include "custom_config.h"
 
-static const char *TAG = "example";
+
+#define MDNS_INSTANCE "grid-eye-server"
+static const char *TAG = "server";
 /* Declare the function which starts the file server.
  * Implementation of this function is to be found in
- * file_server.c */
-esp_err_t start_file_server(const char *base_path);
+ * server.c */
+esp_err_t start_rest_server(const char *base_path);
+
+static void initialise_mdns(void)
+{
+    mdns_init();
+    mdns_hostname_set(CONFIG_EXAMPLE_MDNS_HOST_NAME);
+    mdns_instance_name_set(MDNS_INSTANCE);
+
+    mdns_txt_item_t serviceTxtData[] = {
+        {"board", "esp32"},
+        {"path", "/"}
+    };
+
+    ESP_ERROR_CHECK(mdns_service_add(MDNS_INSTANCE, "_http", "_tcp", 80, serviceTxtData,
+                                     sizeof(serviceTxtData) / sizeof(serviceTxtData[0])));
+}
+
 /* Function to initialize SPIFFS */
 static esp_err_t init_spiffs(void)
 {
     ESP_LOGI(TAG, "Initializing SPIFFS");
     esp_vfs_spiffs_conf_t conf = {
-      .base_path = "/spiffs",
+      .base_path = CONFIG_EXAMPLE_WEB_MOUNT_POINT,
       .partition_label = NULL,
       .max_files = 5,   // This decides the maximum number of files that can be created on the storage
       .format_if_mount_failed = true
@@ -71,6 +87,9 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    initialise_mdns();
+    netbiosns_init();
+    netbiosns_set_name(CONFIG_EXAMPLE_MDNS_HOST_NAME);
 
     /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
@@ -82,5 +101,5 @@ void app_main(void)
     ESP_ERROR_CHECK(init_spiffs());
 
     /* Start the file server */
-    ESP_ERROR_CHECK(start_file_server("/spiffs"));
+    ESP_ERROR_CHECK(start_rest_server(CONFIG_EXAMPLE_WEB_MOUNT_POINT));
 }
